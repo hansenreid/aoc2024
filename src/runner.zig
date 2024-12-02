@@ -37,7 +37,7 @@ pub fn Runner(day: u8, runner_type: RunnerType, intermediate_type: type, accumul
 
         const LineParser = fn (arena: Allocator, line: []const u8) intermediate_type;
         const Accumulator = fn (acc: accumulator_type, it: intermediate_type) accumulator_type;
-        const FinalCalculation = fn (acc: accumulator_type) final_type;
+        const FinalCalculation = fn (arena: Allocator, acc: accumulator_type) final_type;
 
         pub fn run(self: *Self, initial_value: accumulator_type, f: LineParser, acc_f: Accumulator, final_f: FinalCalculation) !final_type {
             var buf_reader = std.io.bufferedReader(self.file.reader());
@@ -58,7 +58,7 @@ pub fn Runner(day: u8, runner_type: RunnerType, intermediate_type: type, accumul
                 .Problem2 => "problem 2",
             };
 
-            const result = final_f(acc);
+            const result = final_f(allocator, acc);
 
             std.debug.print("Result for day {d} {s} is: {any}\n", .{ day, desc, result });
             return result;

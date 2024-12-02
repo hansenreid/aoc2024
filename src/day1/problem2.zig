@@ -1,12 +1,13 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
+const AutoHashMap = std.AutoHashMap;
 const Runner = @import("../runner.zig").Runner;
 const Allocator = std.mem.Allocator;
 const expect = std.testing.expect;
 
 pub fn run(allocator: Allocator) !void {
-    var runner = try Runner(1, .Problem1, Line, *Lists, u64).init(allocator);
+    var runner = try Runner(1, .Problem2, Line, *Lists, i64).init(allocator);
     defer runner.deinit();
 
     var lists = Lists.init(allocator);
@@ -67,34 +68,59 @@ fn accumulator(acc: *Lists, line: Line) *Lists {
     return acc;
 }
 
-fn final_calc(_: Allocator, lists: *Lists) u64 {
-    if (lists.left_array.items.len != lists.right_array.items.len) {
-        std.debug.panic("Lists are not the same length: {any}\n", .{lists});
+fn final_calc(allocator: Allocator, lists: *Lists) i64 {
+    const value_type = struct {
+        num_left: i64,
+        num_right: i64,
+    };
+
+    var map = AutoHashMap(i64, value_type).init(allocator);
+
+    for (lists.left_array.items) |item| {
+        if (map.get(item)) |found| {
+            map.put(
+                item,
+                .{ .num_left = found.num_left + 1, .num_right = found.num_right },
+            ) catch {
+                unreachable;
+            };
+        } else {
+            map.put(item, .{ .num_left = 1, .num_right = 0 }) catch {
+                unreachable;
+            };
+        }
     }
 
-    std.mem.sort(i64, lists.left_array.items, {}, comptime std.sort.asc(i64));
-    std.mem.sort(i64, lists.right_array.items, {}, comptime std.sort.asc(i64));
-
-    var total_distance: u64 = 0;
-    for (0..lists.left_array.items.len) |i| {
-        const left_array = lists.left_array.items[i];
-        const right_array = lists.right_array.items[i];
-
-        const distance = @abs(left_array - right_array);
-        total_distance += distance;
+    for (lists.right_array.items) |item| {
+        if (map.get(item)) |found| {
+            map.put(
+                item,
+                .{ .num_left = found.num_left, .num_right = found.num_right + 1 },
+            ) catch {
+                unreachable;
+            };
+        }
     }
 
-    return total_distance;
+    var total: i64 = 0;
+    var iter = map.iterator();
+    while (iter.next()) |entry| {
+        const left = entry.key_ptr.*;
+        const right = entry.value_ptr.*;
+        total += left * right.num_left * right.num_right;
+    }
+
+    return total;
 }
 
 test "example returns correct value" {
     const allocator = std.testing.allocator;
-    var runner = try Runner(1, .Example1, Line, *Lists, u64).init(allocator);
+    var runner = try Runner(1, .Example2, Line, *Lists, i64).init(allocator);
     defer runner.deinit();
 
     var lists = Lists.init(allocator);
     defer lists.deinit();
 
     const result = try runner.run(&lists, line_parser, accumulator, final_calc);
-    try expect(result == 11);
+    try expect(result == 31);
 }
